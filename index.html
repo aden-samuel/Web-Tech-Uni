@@ -1,0 +1,498 @@
+
+<!DOCTYPE html>
+<html>
+<head>
+    <title>PennyWise - Expense Tracker</title>
+
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background: #111827;
+            color: white;
+            max-width: 850px;
+            margin: 30px auto;
+            padding: 15px;
+        }
+
+        h1 {
+            color: #60a5fa;
+            font-size: 40px;
+            text-align: center;
+            margin-bottom: 10px;
+        }
+
+        .subtitle {
+                text-align: center;
+                font-size: 17px;
+                color: #94a3b8;
+                letter-spacing: 1px;
+                margin-top: 8px;
+                margin-bottom: 25px;
+            }
+
+        .card {
+            background: #1f2937;
+            padding: 20px;
+            margin: 15px 0;
+            border-radius: 10px;
+            border: 1px solid #374151;
+        }
+
+        .dashboard {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 12px;
+        }
+
+        .dashboard h2 { font-size: 22px; }
+        .income { color: #4ade80; }
+        .spent { color: #fbbf24; }
+        .remaining { color: #60a5fa; }
+
+        input, select, button {
+            padding: 11px;
+            margin: 5px 0;
+            border-radius: 6px;
+            border: none;
+            font-size: 14px;
+        }
+
+        input, select {
+            background: #374151;
+            color: white;
+            width: 100%;
+            box-sizing: border-box;
+        }
+
+        button {
+            background: #3b82f6;
+            color: white;
+            cursor: pointer;
+        }
+
+        button:hover { background: #2563eb; }
+        .danger { background: #dc2626; }
+        .danger:hover { background: #b91c1c; }
+
+        .expense {
+            display: flex;
+            justify-content: space-between;
+            padding: 12px 0;
+            border-bottom: 1px solid #374151;
+            gap: 10px;
+        }
+
+        .expense small {
+            display: block;
+            color: #9ca3af;
+            margin-top: 5px;
+        }
+
+        .expense b {
+            color: #fbbf24;
+            white-space: nowrap;
+        }
+
+        .progress {
+            background: #374151;
+            height: 12px;
+            border-radius: 10px;
+            margin-top: 12px;
+            overflow: hidden;
+        }
+
+        #progressBar {
+            background: #3b82f6;
+            height: 100%;
+            width: 0%;
+        }
+
+        #warning { color: #f87171; }
+
+        @media (max-width: 600px) {
+            .dashboard { grid-template-columns: 1fr; }
+        }
+    </style>
+</head>
+
+<body>
+
+<h1>PennyWise</h1>
+<p class="subtitle">Simple and private expense tracking.</p>
+
+<!-- DASHBOARD -->
+
+<div class="dashboard">
+
+    <div class="card">
+        <p>Monthly Income</p>
+        <h2 class="income" id="incomeDisplay">₹0</h2>
+    </div>
+
+    <div class="card">
+        <p>Total Spent This Month</p>
+        <h2 class="spent" id="spentDisplay">₹0</h2>
+    </div>
+
+    <div class="card">
+        <p>Remaining Budget</p>
+        <h2 class="remaining" id="remainingDisplay">₹0</h2>
+    </div>
+
+</div>
+
+
+<!-- BUDGET SETTINGS -->
+
+<div class="card">
+
+    <h3>Monthly Budget Settings</h3>
+
+    <input type="number" id="incomeInput" placeholder="Monthly income">
+
+    <input type="number" id="limitInput" placeholder="Monthly spending limit">
+
+    <button onclick="saveSettings()">Save Settings</button>
+
+</div>
+
+
+<!-- BUDGET PROGRESS -->
+
+<div class="card">
+
+    <h3>Budget Progress</h3>
+
+    <p id="progressText">₹0 spent out of ₹0</p>
+
+    <div class="progress">
+        <div id="progressBar"></div>
+    </div>
+
+    <p id="warning"></p>
+
+</div>
+
+
+<!-- ADD EXPENSE -->
+
+<div class="card">
+
+    <h3>Add New Expense</h3>
+
+    <input type="text" id="expenseName" placeholder="Expense description">
+
+    <input type="number" id="expenseAmount" placeholder="Amount">
+
+    <label for="expenseDate">Expense Date:</label>
+    <input type="date" id="expenseDate">
+
+    <select id="category">
+        <option>Food</option>
+        <option>Transport</option>
+        <option>Shopping</option>
+        <option>Bills</option>
+        <option>Entertainment</option>
+        <option>Other</option>
+    </select>
+
+    <button onclick="addExpense()">Add Expense</button>
+
+</div>
+
+
+<!-- EXPENSE HISTORY -->
+
+<div class="card">
+
+    <h3>Expense History</h3>
+
+    <div id="expenseList">No expenses added yet.</div>
+
+    <button onclick="exportData()">Export CSV</button>
+
+    <button class="danger" onclick="clearExpenses()">Clear Expenses</button>
+
+</div>
+
+
+<script>
+
+    // MAIN VARIABLES
+
+    let expenses = [];
+    let income = 0;
+    let spendingLimit = 0;
+
+
+    // GET TODAY'S DATE
+
+    function getToday() {
+        let today = new Date();
+
+        let month = String(today.getMonth() + 1).padStart(2, "0");
+        let day = String(today.getDate()).padStart(2, "0");
+
+        return today.getFullYear() + "-" + month + "-" + day;
+    }
+
+
+    // GET CURRENT MONTH
+
+    function getCurrentMonth() {
+        return getToday().slice(0, 7);
+    }
+
+
+    // SAVE DATA TO LOCAL STORAGE
+
+    function saveData() {
+        const data = { expenses, income, spendingLimit };
+
+        localStorage.setItem("pennyWiseData", JSON.stringify(data));
+    }
+
+
+    // LOAD PREVIOUSLY SAVED DATA
+
+    function loadData() {
+        try {
+            const data = JSON.parse(localStorage.getItem("pennyWiseData"));
+
+            if (data) {
+                expenses = Array.isArray(data.expenses) ? data.expenses : [];
+                income = Number(data.income) || 0;
+                spendingLimit = Number(data.spendingLimit) || 0;
+
+                // GIVE OLD EXPENSES A DATE
+
+                for (let expense of expenses) {
+                    if (!expense.date) {
+                        expense.date = getToday();
+                    }
+                }
+            }
+
+        } catch (error) {
+            console.log("Could not load saved data.");
+        }
+
+        document.getElementById("incomeInput").value = income;
+        document.getElementById("limitInput").value = spendingLimit;
+        document.getElementById("expenseDate").value = getToday();
+
+        saveData();
+        updateDashboard();
+    }
+
+
+    // SAVE INCOME AND SPENDING LIMIT
+
+    function saveSettings() {
+        let newIncome = Number(document.getElementById("incomeInput").value);
+        let newLimit = Number(document.getElementById("limitInput").value);
+
+        if (document.getElementById("incomeInput").value === "" ||
+            document.getElementById("limitInput").value === "" ||
+            !Number.isFinite(newIncome) || !Number.isFinite(newLimit) ||
+            newIncome < 0 || newLimit < 0) {
+
+            alert("Enter valid income and spending limit.");
+            return;
+        }
+
+        income = newIncome;
+        spendingLimit = newLimit;
+
+        saveData();
+        updateDashboard();
+    }
+
+
+    // ADD A NEW EXPENSE
+
+    function addExpense() {
+        let name = document.getElementById("expenseName").value.trim();
+
+        let amountInput = document.getElementById("expenseAmount").value;
+        let amount = Number(amountInput);
+
+        let category = document.getElementById("category").value;
+        let date = document.getElementById("expenseDate").value;
+
+        if (name === "" || amountInput === "" || date === "" ||
+            !Number.isFinite(amount) || amount <= 0) {
+
+            alert("Enter a valid description, amount and date.");
+            return;
+        }
+
+        expenses.push({ name, amount, category, date });
+
+        saveData();
+        updateDashboard();
+
+        document.getElementById("expenseName").value = "";
+        document.getElementById("expenseAmount").value = "";
+
+    }
+
+
+    // CALCULATE CURRENT MONTH'S EXPENSES
+
+    function calculateTotal() {
+        let total = 0;
+        let currentMonth = getCurrentMonth();
+
+        for (let expense of expenses) {
+
+            if (expense.date.slice(0, 7) === currentMonth) {
+                total += expense.amount;
+            }
+
+        }
+
+        return total;
+    }
+
+
+    // UPDATE DASHBOARD AND EXPENSE HISTORY
+
+    function updateDashboard() {
+        let total = calculateTotal();
+
+        let remaining = spendingLimit - total;
+
+        document.getElementById("incomeDisplay").textContent =
+            "₹" + income.toFixed(2);
+
+        document.getElementById("spentDisplay").textContent =
+            "₹" + total.toFixed(2);
+
+        document.getElementById("remainingDisplay").textContent =
+            "₹" + remaining.toFixed(2);
+
+
+        // UPDATE PROGRESS BAR
+
+        let percentage = spendingLimit > 0 ? (total / spendingLimit) * 100 : 0;
+
+        document.getElementById("progressText").textContent =
+            "₹" + total.toFixed(2) +
+            " spent out of ₹" + spendingLimit.toFixed(2);
+
+        document.getElementById("progressBar").style.width =
+            Math.min(percentage, 100) + "%";
+
+
+        // SHOW BUDGET WARNINGS
+
+        let warning = document.getElementById("warning");
+
+        if (spendingLimit > 0 && percentage >= 100) {
+            warning.textContent = "You have exceeded your budget!";
+
+        } else if (spendingLimit > 0 && percentage >= 80) {
+            warning.textContent = "Warning: 20% or less of your budget remains!";
+
+        } else {
+            warning.textContent = "";
+        }
+
+
+        // DISPLAY EXPENSE HISTORY
+
+        let list = document.getElementById("expenseList");
+
+        list.innerHTML = "";
+
+        if (expenses.length === 0) {
+            list.textContent = "No expenses added yet.";
+            return;
+        }
+
+        for (let expense of expenses) {
+
+            let item = document.createElement("div");
+            item.className = "expense";
+
+            let details = document.createElement("div");
+
+            let name = document.createElement("strong");
+            let category = document.createElement("small");
+
+            let amount = document.createElement("b");
+
+            name.textContent = expense.name;
+
+            category.textContent =
+                expense.category + " | " + expense.date;
+
+            amount.textContent =
+                "₹" + Number(expense.amount).toFixed(2);
+
+            details.append(name, category);
+
+            item.append(details, amount);
+
+            list.appendChild(item);
+        }
+    }
+
+
+    // EXPORT EXPENSES AS A CSV FILE
+
+    function exportData() {
+        if (expenses.length === 0) {
+            alert("No expenses available to export.");
+            return;
+        }
+
+        let csv = "Date,Description,Category,Amount\n";
+
+        for (let expense of expenses) {
+
+            let name = '"' + expense.name.replace(/"/g, '""') + '"';
+
+            let category = '"' +
+                expense.category.replace(/"/g, '""') + '"';
+
+            csv += expense.date + "," + name + "," +
+                category + "," + expense.amount + "\n";
+        }
+
+        let file = new Blob([csv], { type: "text/csv" });
+
+        let url = URL.createObjectURL(file);
+
+        let link = document.createElement("a");
+
+        link.href = url;
+        link.download = "expenses.csv";
+        link.click();
+
+        URL.revokeObjectURL(url);
+    }
+
+
+    // CLEAR ALL EXPENSES
+
+    function clearExpenses() {
+        if (confirm("Are you sure you want to delete all expenses?")) {
+
+            expenses = [];
+
+            saveData();
+            updateDashboard();
+        }
+    }
+
+
+    // START THE APPLICATION
+
+    loadData();
+
+</script>
+
+</body>
+</html>
